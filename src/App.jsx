@@ -112,7 +112,7 @@ export default function App() {
     const text = `Hi ${form.to}!
 Aku punya kartu ucapan digital spesial buat kamu.  
 
-Buka di sini ya:  
+Buka di sini ya
 ${generatedLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
