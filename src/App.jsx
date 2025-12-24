@@ -109,11 +109,11 @@ export default function App() {
   };
 
   const shareToWA = () => {
-    const text = `Hi ${form.to} 👋  
+    const text = `Hi ${form.to}!
 Aku punya kartu ucapan digital spesial buat kamu.  
-Buka di sini ya ✨  
-${generatedLink}
-`;
+
+Buka di sini ya:  
+${generatedLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
