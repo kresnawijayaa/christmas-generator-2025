@@ -1,47 +1,84 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Music, VolumeX, Heart, Sparkles, Gift, Share2, Copy, Send, Instagram, PlusCircle } from 'lucide-react';
 
-// --- KONFIGURASI AUDIO & ENV ---
+// --- FIREBASE IMPORTS ---
+import { initializeApp } from 'firebase/app';
+import { getAnalytics } from "firebase/analytics";
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
-// [PENTING] UNTUK PENGGUNAAN LOKAL & DEPLOY VERCEL:
-// Hapus tanda komentar (//) pada bagian 'LOCAL' di bawah ini, 
-// dan beri komentar pada bagian 'PREVIEW'.
-
-// === MODE LOCAL / PRODUCTION (Gunakan ini di laptop/Vercel) ===
 import bgmAudio from './assets/last-christmas.mp3';
+
+// --- KONFIGURASI FIREBASE ANDA ---
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+};
+
+// Inisialisasi Firebase Services
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// --- KONFIGURASI LAINNYA ---
 const CREATOR_IG = import.meta.env.VITE_CREATOR_IG || "username_kamu"; 
 const BASE_URL = import.meta.env.VITE_BASE_URL || window.location.origin;
 
-// === MODE PREVIEW (Hanya untuk demo di sini agar tidak error) ===
-// const bgmAudio = "https://ia800100.us.archive.org/2/items/LastChristmasInstrumental/Last%20Christmas%20-%20Instrumental.mp3";
-// const CREATOR_IG = "username_kamu"; // Fallback preview
-// const BASE_URL = window.location.origin; // Fallback preview
-
 export default function App() {
   // State untuk Data Kartu
-  const [data, setData] = useState({
-    to: '',
-    from: '',
-    message: ''
-  });
+  const [data, setData] = useState({ to: '', from: '', message: '' });
   
   // State UI
   const [isOpen, setIsOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showGenerator, setShowGenerator] = useState(false); // Modal Generator
+  const [showGenerator, setShowGenerator] = useState(false);
   
   // State Form Generator
   const [form, setForm] = useState({ to: '', from: '', msg: '' });
   const [generatedLink, setGeneratedLink] = useState('');
 
+  // State User Firebase
+  const [user, setUser] = useState(null);
+
   const audioRef = useRef(null);
   const audioUrl = bgmAudio;
 
+  // --- 1. AUTHENTICATION (DEBUGGING LOGIN) ---
   useEffect(() => {
-    // Logika Pintar Baca URL
+    console.log("🔄 Memulai proses Auth Firebase...");
+    
+    // Gunakan onAuthStateChanged untuk memantau status login secara real-time
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        console.log("✅ Firebase Auth BERHASIL! User ID:", currentUser.uid);
+        setUser(currentUser);
+      } else {
+        console.log("⏳ User belum login, mencoba signInAnonymously...");
+        signInAnonymously(auth)
+          .then((cred) => console.log("👌 Login Anonymous sukses! ID:", cred.user.uid))
+          .catch((error) => {
+            console.error("❌ Gagal Login Firebase:", error.code, error.message);
+            // Tips debugging khusus untuk error ini
+            if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed' || error.message.includes('configuration-not-found')) {
+                console.warn("\n👉 TIP PERBAIKAN: \n1. Buka Firebase Console > Build > Authentication.\n2. Klik 'Get Started'.\n3. Di tab 'Sign-in method', aktifkan 'Anonymous'.\n");
+            }
+          });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // --- 2. LOGIKA URL ---
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     
-    // 1. Ambil Nama Penerima (Support /Nama atau ?to=Nama)
     let recipientName = 'Someone Special';
     const path = window.location.pathname;
     const pathSegment = path.split('/').filter(Boolean).pop();
@@ -52,11 +89,8 @@ export default function App() {
         recipientName = params.get('to');
     }
 
-    // 2. Ambil Pengirim & Pesan (Default jika kosong)
     const senderName = params.get('from') || 'Your Friend'; 
     const customMsg = params.get('msg') || "May the melody and spirit of the holidays fill your home with love and peace. Wishing you a year ahead filled with new hope, abundant happiness, and prosperity.";
-
-    // Format Nama (Hilangkan dash, Capitalize)
     const formatName = (str) => str.replace(/-/g, ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase());
 
     setData({
@@ -64,11 +98,43 @@ export default function App() {
         from: formatName(senderName),
         message: customMsg
     });
-
   }, []);
+
+  // --- FUNGSI LOGGING KE FIREBASE (DENGAN CONSOLE LOG LENGKAP) ---
+  const logActivity = async (activityType, details) => {
+    console.log(`📝 [START] Mencoba mencatat log: ${activityType}`);
+
+    // Cek apakah user sudah siap
+    if (!auth.currentUser) {
+      console.warn("⚠️ [GAGAL] User belum terautentikasi (Firebase Auth belum siap atau gagal). Log dilewati.");
+      return; 
+    }
+
+    try {
+      await addDoc(collection(db, "activity_logs"), {
+        type: activityType, 
+        ...details,
+        timestamp: serverTimestamp(),
+        userAgent: navigator.userAgent
+      });
+      console.log(`✅ [SUKSES] Log '${activityType}' tersimpan di Firestore!`);
+    } catch (e) {
+      console.error("❌ [ERROR] Gagal menyimpan log:", e);
+      if (e.message.includes("permission-denied")) {
+        console.warn("💡 SOLUSI: Cek tab 'Rules' di Firestore Console. Pastikan: allow read, write: if true;");
+      }
+    }
+  };
 
   const handleOpen = () => {
     setIsOpen(true);
+    
+    // LOG: User membuka kartu
+    logActivity('view_card', {
+      recipient: data.to,
+      sender: data.from
+    });
+
     if (audioRef.current) {
       audioRef.current.play().catch(() => setIsPlaying(false));
       setIsPlaying(true);
@@ -85,9 +151,8 @@ export default function App() {
   const generateLink = () => {
     if(!form.to || !form.from) return;
 
-    // Buat URL yang bersih
     const baseUrl = BASE_URL; 
-    const nameParam = form.to.replace(/\s+/g, '-'); // Ganti spasi nama jadi strip
+    const nameParam = form.to.replace(/\s+/g, '-');
     
     let finalUrl = `${baseUrl}/${nameParam}?from=${encodeURIComponent(form.from)}`;
     
@@ -96,24 +161,27 @@ export default function App() {
     }
 
     setGeneratedLink(finalUrl);
+
+    // LOG: User membuat link baru
+    logActivity('create_link', {
+      creator: form.from,
+      target_recipient: form.to,
+      has_custom_message: !!form.msg
+    });
   };
 
   const resetGenerator = () => {
     setGeneratedLink('');
-    setForm(prev => ({ ...prev, to: '' })); // Reset nama penerima saja, pengirim & pesan biarkan
+    setForm(prev => ({ ...prev, to: '' }));
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedLink);
-    alert("Link kartu berhasil disalin ✨");
+    alert("Link berhasil disalin!");
   };
 
   const shareToWA = () => {
-    const text = `Hi ${form.to}!
-Aku punya kartu ucapan digital spesial buat kamu.  
-
-Buka di sini ya
-${generatedLink}`;
+    const text = `Hi ${form.to}, aku punya kartu ucapan digital spesial buat kamu. Buka ya: ${generatedLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -162,7 +230,6 @@ ${generatedLink}`;
             <p className="text-sm mt-2 text-white/70">Tap to open</p>
           </div>
           
-          {/* Credit di layar depan */}
           <div className="absolute bottom-10 text-white/30 text-xs flex items-center gap-1">
             <Instagram size={12} /> Created by @{CREATOR_IG}
           </div>
@@ -174,36 +241,36 @@ ${generatedLink}`;
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
             <div className="bg-white text-gray-800 w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
                 <button onClick={() => setShowGenerator(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500">✕</button>
-                <h3 className="text-xl font-bold mb-1 text-red-700">Buat Kartu Ucapan Digital</h3>
-                <p className="text-xs text-gray-500 mb-4">Isi detail di bawah, kami akan membuatkan link kartu spesial untukmu.</p>
+                <h3 className="text-xl font-bold mb-1 text-red-700">Buat Kartu Ucapanmu</h3>
+                <p className="text-xs text-gray-500 mb-4">Isi form di bawah untuk membuat link unik.</p>
                 
                 <div className="space-y-3">
                     <div>
-                        <label className="text-xs font-bold text-gray-600 block mb-1">Nama Pengirim</label>
-                        <input type="text" placeholder="Contoh: Ken" className="w-full border p-2 rounded-lg text-sm bg-gray-50" 
+                        <label className="text-xs font-bold text-gray-600 block mb-1">Nama Pengirim (Kamu)</label>
+                        <input type="text" placeholder="Contoh: Andi" className="w-full border p-2 rounded-lg text-sm bg-gray-50" 
                             value={form.from}
                             onChange={e => setForm({...form, from: e.target.value})} />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-600 block mb-1">Nama Penerima</label>
-                        <input type="text" placeholder="Contoh: Wina & Family" className="w-full border p-2 rounded-lg text-sm bg-gray-50"
+                        <input type="text" placeholder="Contoh: Budi Santoso" className="w-full border p-2 rounded-lg text-sm bg-gray-50"
                             value={form.to}
                             onChange={e => setForm({...form, to: e.target.value})} />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-600 block mb-1">Pesan (Opsional)</label>
-                        <textarea placeholder="Pesan sudah disiapkan otomatis. Tulis di sini jika ingin menggantinya dengan ucapan versimu sendiri." className="w-full border p-2 rounded-lg text-sm bg-gray-50 h-20"
+                        <textarea placeholder="Tulis ucapan custom kamu disini..." className="w-full border p-2 rounded-lg text-sm bg-gray-50 h-20"
                             value={form.msg}
                             onChange={e => setForm({...form, msg: e.target.value})} />
                     </div>
                     
                     {!generatedLink ? (
                         <button onClick={generateLink} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-700 transition">
-                            Buat Link Kartunya ✨
+                            Buat Link Kartu ✨
                         </button>
                     ) : (
                         <div className="bg-green-50 p-3 rounded-xl border border-green-200 animate-fade-in">
-                            <p className="text-xs text-green-800 font-semibold mb-2">Link kartu berhasil dibuat 🎉</p>
+                            <p className="text-xs text-green-800 font-semibold mb-2">Link berhasil dibuat!</p>
                             <div className="flex gap-2 mb-2">
                                 <button onClick={copyToClipboard} className="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
                                     <Copy size={14}/> Salin
@@ -213,7 +280,7 @@ ${generatedLink}`;
                                 </button>
                             </div>
                             <button onClick={resetGenerator} className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition">
-                                <PlusCircle size={14}/> Buat Kartu Lainnya
+                                <PlusCircle size={14}/> Buat Link Lainnya
                             </button>
                         </div>
                     )}
@@ -223,10 +290,10 @@ ${generatedLink}`;
       )}
 
       {/* --- KONTEN UTAMA --- */}
-      <div className={`mt-4 relative z-10 min-h-screen flex flex-col items-center justify-center p-6 transition-all duration-1000 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+      <div className={`relative z-10 min-h-screen flex flex-col items-center justify-center p-6 transition-all duration-1000 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         <Snowflakes />
         
-        <div className="glass-card w-full max-w-md p-8 rounded-3xl shadow-2xl text-center border-t-4 border-yellow-500 relative mb-20"> {/* mb-20 agar tidak ketutup tombol bawah */}
+        <div className="glass-card w-full max-w-md p-8 rounded-3xl shadow-2xl text-center border-t-4 border-yellow-500 relative mb-20"> 
           <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-green-800 rounded-full p-3 shadow-lg border-2 border-yellow-500">
              <Sparkles className="text-yellow-300" size={32} />
           </div>
@@ -262,16 +329,14 @@ ${generatedLink}`;
 
         {/* --- TOMBOL PORTFOLIO / VIRAL LOOP --- */}
         <div className="fixed bottom-0 left-0 right-0 p-4 flex flex-col items-center z-30 pointer-events-none">
-            {/* Tombol Buat Sendiri (Pointer events auto agar bisa diklik) */}
             <button 
                 onClick={() => setShowGenerator(true)}
                 className="pointer-events-auto bg-white/10 backdrop-blur-md border border-white/30 text-white px-6 py-2 rounded-full text-sm font-medium shadow-lg hover:bg-white/20 transition-all mb-8 flex items-center gap-2"
             >
                 <Share2 size={14} />
-                Buat kartu ucapanmu sendiri
+                Kirim kartu seperti ini
             </button>
             
-            {/* Watermark Portfolio */}
             <a href={`https://instagram.com/${CREATOR_IG}`} target="_blank" rel="noreferrer" className="pointer-events-auto text-white/30 text-[10px] hover:text-white/80 transition-colors flex items-center gap-1 pb-2">
                 <Instagram size={10} />
                 Developed by @{CREATOR_IG}
