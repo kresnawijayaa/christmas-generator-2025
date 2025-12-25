@@ -177,11 +177,15 @@ export default function App() {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedLink);
-    alert("Link berhasil disalin!");
+    alert("Link kartu berhasil disalin ✨");
   };
 
   const shareToWA = () => {
-    const text = `Hi ${form.to}, aku punya kartu ucapan digital spesial buat kamu. Buka ya: ${generatedLink}`;
+    const text = `Hi ${form.to}!  
+Aku punya kartu ucapan digital spesial buat kamu.  
+
+Buka di sini ya
+${generatedLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -241,25 +245,28 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
             <div className="bg-white text-gray-800 w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
                 <button onClick={() => setShowGenerator(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500">✕</button>
-                <h3 className="text-xl font-bold mb-1 text-red-700">Buat Kartu Ucapanmu</h3>
-                <p className="text-xs text-gray-500 mb-4">Isi form di bawah untuk membuat link unik.</p>
+                <h3 className="text-xl font-bold mb-1 text-red-700">Buat Kartu Ucapan Digital</h3>
+<p className="text-xs text-gray-500 mb-4">
+  Isi detail di bawah, kami akan membuatkan link kartu spesial untukmu.
+</p>
+
                 
                 <div className="space-y-3">
                     <div>
-                        <label className="text-xs font-bold text-gray-600 block mb-1">Nama Pengirim (Kamu)</label>
+                        <label className="text-xs font-bold text-gray-600 block mb-1">Nama Pengirim</label>
                         <input type="text" placeholder="Contoh: Andi" className="w-full border p-2 rounded-lg text-sm bg-gray-50" 
                             value={form.from}
                             onChange={e => setForm({...form, from: e.target.value})} />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-600 block mb-1">Nama Penerima</label>
-                        <input type="text" placeholder="Contoh: Budi Santoso" className="w-full border p-2 rounded-lg text-sm bg-gray-50"
+                        <input type="text" placeholder="Contoh: Wina & Family" className="w-full border p-2 rounded-lg text-sm bg-gray-50"
                             value={form.to}
                             onChange={e => setForm({...form, to: e.target.value})} />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-600 block mb-1">Pesan (Opsional)</label>
-                        <textarea placeholder="Tulis ucapan custom kamu disini..." className="w-full border p-2 rounded-lg text-sm bg-gray-50 h-20"
+                        <textarea placeholder="Pesan sudah disiapkan otomatis. Tulis di sini jika ingin menggantinya dengan ucapan versimu sendiri." className="w-full border p-2 rounded-lg text-sm bg-gray-50 h-20"
                             value={form.msg}
                             onChange={e => setForm({...form, msg: e.target.value})} />
                     </div>
@@ -270,7 +277,7 @@ export default function App() {
                         </button>
                     ) : (
                         <div className="bg-green-50 p-3 rounded-xl border border-green-200 animate-fade-in">
-                            <p className="text-xs text-green-800 font-semibold mb-2">Link berhasil dibuat!</p>
+                            <p className="text-xs text-green-800 font-semibold mb-2">Link kartu berhasil dibuat 🎉</p>
                             <div className="flex gap-2 mb-2">
                                 <button onClick={copyToClipboard} className="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
                                     <Copy size={14}/> Salin
@@ -280,7 +287,7 @@ export default function App() {
                                 </button>
                             </div>
                             <button onClick={resetGenerator} className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition">
-                                <PlusCircle size={14}/> Buat Link Lainnya
+                                <PlusCircle size={14}/> Buat Kartu Lainnya
                             </button>
                         </div>
                     )}
@@ -334,7 +341,7 @@ export default function App() {
                 className="pointer-events-auto bg-white/10 backdrop-blur-md border border-white/30 text-white px-6 py-2 rounded-full text-sm font-medium shadow-lg hover:bg-white/20 transition-all mb-8 flex items-center gap-2"
             >
                 <Share2 size={14} />
-                Kirim kartu seperti ini
+                Buat kartu ucapanmu sendiri
             </button>
             
             <a href={`https://instagram.com/${CREATOR_IG}`} target="_blank" rel="noreferrer" className="pointer-events-auto text-white/30 text-[10px] hover:text-white/80 transition-colors flex items-center gap-1 pb-2">
