@@ -254,7 +254,7 @@ ${generatedLink}`;
                 <div className="space-y-3">
                     <div>
                         <label className="text-xs font-bold text-gray-600 block mb-1">Nama Pengirim</label>
-                        <input type="text" placeholder="Contoh: Andi" className="w-full border p-2 rounded-lg text-sm bg-gray-50" 
+                        <input type="text" placeholder="Contoh: Ken" className="w-full border p-2 rounded-lg text-sm bg-gray-50" 
                             value={form.from}
                             onChange={e => setForm({...form, from: e.target.value})} />
                     </div>
